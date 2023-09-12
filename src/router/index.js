@@ -1,4 +1,6 @@
 import { createRouter, createWebHistory } from 'vue-router'
+import { onAuthStateChanged } from 'firebase/auth'
+import { useFirebaseAuth } from 'vuefire'
 import HomeView from '../views/HomeView.vue'
 
 const router = createRouter({
@@ -18,6 +20,7 @@ const router = createRouter({
       path: '/admin',
       name: 'admin',
       component: () => import('../views/admin/AdminLayout.vue'),
+      meta: { requiesAuth: true},
       children: [
         {
           path: '/admin/propiedades',
@@ -38,5 +41,38 @@ const router = createRouter({
     }
   ]
 })
+
+//Guard de navegacion
+router.beforeEach(async (to, from, next) => {
+  const requiesAuth = to.matched.some(url => url.meta.requiesAuth)
+  if(requiesAuth) {
+    //comprobar si el usuario esta autenticado
+    try {
+      await authenticateUser()
+      next()
+    } catch (error) {
+      console.log(error)
+      next({name: 'login'})
+    }
+  } else {
+    //no esta protegido, mostramos la vista
+    next()
+  }
+})
+
+function authenticateUser() {
+  const auth = useFirebaseAuth()
+
+  return new Promise((resolve, reject) => {
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      unsubscribe()
+      if(user) {
+        resolve(user)
+      } else {
+        reject()
+      }
+    })
+  })
+}
 
 export default router
